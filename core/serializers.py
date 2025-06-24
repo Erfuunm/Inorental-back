@@ -1,11 +1,11 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
+from django.utils import timezone  # Add this import
 from .models import (
     Property, Amenity, PropertyAmenity, Facility, PropertyFacility,
     HouseRule, PropertyHouseRule, Booking, Review, Conversation,
     ConversationParticipant, Message, Photo, Availability
 )
-
 
 '''
 should be move to the account app
