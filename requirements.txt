@@ -1,0 +1,14 @@
+Django==4.2
+djangorestframework==3.14.0
+djangorestframework-simplejwt==5.3.1
+drf-yasg==1.21.4
+channels==4.0.0
+asgiref==3.6.0
+sqlparse==0.4.3
+pytz>=2023.3
+django-cors-headers
+pillow
+dj-stripe==2.8.4
+atlassian-python-api==4.0.4
+ruamel.yaml>=0.16.13
+django-filter==23.5

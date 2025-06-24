@@ -1,0 +1,32 @@
+stages:
+  - build
+  - deploy
+
+variables:
+  IMAGE_NAME: inorental-backend
+  ACR_REGISTRY: inorentalacr.azurecr.io
+
+build_image:
+  stage: build
+  script:
+    - echo "Logging in to ACR..."
+    - docker login $ACR_REGISTRY -u $ACR_USERNAME -p $ACR_PASSWORD
+    - echo "Building Docker image..."
+    - docker build -t $ACR_REGISTRY/$IMAGE_NAME:latest .
+    - echo "Pushing Docker image to ACR..."
+    - docker push $ACR_REGISTRY/$IMAGE_NAME:latest
+  only:
+    - main
+
+deploy_to_webapp:
+  stage: deploy
+  script:
+    - echo "Authenticating with Azure..."
+    - az login --service-principal -u $ARM_CLIENT_ID -p $ARM_CLIENT_SECRET --tenant $ARM_TENANT_ID
+    - az account set --subscription $ARM_SUBSCRIPTION_ID
+    - echo "Configuring Azure Web App container..."
+    - az webapp config container set --name inorental-api --resource-group Innorental_group --docker-custom-image-name $ACR_REGISTRY/$IMAGE_NAME:latest --docker-registry-server-url https://$ACR_REGISTRY --docker-registry-server-user $ACR_USERNAME --docker-registry-server-password $ACR_PASSWORD
+    - echo "Restarting Azure Web App..."
+    - az webapp restart --name inorental-api --resource-group Innorental_group
+  only:
+    - main
