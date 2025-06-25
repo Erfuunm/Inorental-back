@@ -31,7 +31,7 @@ from .serializers import (
     FacilitySerializer, PropertyFacilitySerializer, HouseRuleSerializer,
     PropertyHouseRuleSerializer, BookingSerializer, ReviewSerializer,
     ConversationSerializer, ConversationParticipantSerializer, MessageSerializer,
-    PhotoSerializer, AvailabilitySerializer, VisitorTaskSerializer
+    PhotoSerializer, AvailabilitySerializer, CreateBookingSerializer
 )
 
 # Get the user model
@@ -148,24 +148,22 @@ class PropertyHouseRuleViewSet(viewsets.ModelViewSet):
     serializer_class = PropertyHouseRuleSerializer
     permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
 
+
 class BookingViewSet(viewsets.ModelViewSet):
     queryset = Booking.objects.all()
     serializer_class = BookingSerializer
     permission_classes = (permissions.IsAuthenticated,)
 
     def get_queryset(self):
-        # Handle schema generation for Swagger
         if getattr(self, 'swagger_fake_view', False):
             return Booking.objects.none()
             
-        # Handle unauthenticated users during schema generation
         if not self.request.user.is_authenticated:
             return Booking.objects.none()
             
         if self.request.user.is_staff: # Admin can see all bookings
             return Booking.objects.all()
             
-        # Users can only see their own bookings or bookings for their properties
         return Booking.objects.filter(guest=self.request.user) | \
                Booking.objects.filter(property__host=self.request.user)
 
@@ -197,25 +195,24 @@ class BookingViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["get"])
     def payment(self, request, pk=None):
         booking = Booking.objects.get(pk=pk)
-        amount = int((booking.check_out_date - booking.check_in_date).days * booking.property.price_per_night * 100)  # Convert to cents for Stripe
-        # Ensure the user has a Stripe Customer object
+        amount = int((booking.check_out_date - booking.check_in_date).days * booking.property.price_per_night * 100)
         customer, created = Customer.get_or_create(subscriber=request.user)
         session = stripe.checkout.Session.create(
-        line_items=[{
-            'price_data': {
-            'currency': 'usd',
-            'unit_amount': amount,
-            'product_data': {
-                'name': 'Rental Price',
-                'description': 'Total Price of Rental',
-                'images' : ["https://gitlab.canadacentral.cloudapp.azure.com/inorental-backend/media/inorental.png"],
-            },
-            },
-            'quantity': 1,
-        }],
-        mode='payment',
-        success_url=self.reverse_action("payment-confirm", args=[booking.booking_id]),
-        cancel_url=self.reverse_action("payment-cancle", args=[booking.booking_id]),
+            line_items=[{
+                'price_data': {
+                    'currency': 'usd',
+                    'unit_amount': amount,
+                    'product_data': {
+                        'name': 'Rental Price',
+                        'description': 'Total Price of Rental',
+                        'images': ["https://gitlab.canadacentral.cloudapp.azure.com/inorental-backend/media/inorental.png"],
+                    },
+                },
+                'quantity': 1,
+            }],
+            mode='payment',
+            success_url=self.reverse_action("payment-confirm", args=[booking.booking_id]),
+            cancel_url=self.reverse_action("payment-cancle", args=[booking.booking_id]),
         )
         booking.payment_session = session.id
         booking.save()
@@ -236,7 +233,6 @@ class BookingViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["get"], name="booking-payment-cancle", permission_classes=[IsAdminOrReadOnly])
     def payment_cancle(self, request, pk=None):
         pass
-
 
 class ReviewViewSet(viewsets.ModelViewSet):
     queryset = Review.objects.all()
