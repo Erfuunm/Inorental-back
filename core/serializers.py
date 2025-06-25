@@ -7,6 +7,7 @@ from .models import (
     ConversationParticipant, Message, Photo, Availability
 )
 
+
 '''
 should be move to the account app
 '''
@@ -104,6 +105,7 @@ class BookingSerializer(serializers.ModelSerializer):
         model = Booking
         fields = '__all__'
 
+
 class CreateBookingSerializer(serializers.ModelSerializer):
     property_id = serializers.IntegerField(write_only=True)
     
@@ -112,36 +114,49 @@ class CreateBookingSerializer(serializers.ModelSerializer):
         fields = ['property_id', 'check_in_date', 'check_out_date', 'num_guests']
 
     def validate(self, data):
+        # Extract input data
+        property_id = data.get('property_id')
+        check_in_date = data.get('check_in_date')
+        check_out_date = data.get('check_out_date')
+        num_guests = data.get('num_guests')
+
         # Check if property exists
         try:
-            property = Property.objects.get(property_id=data['property_id'])
+            property_obj = Property.objects.get(property_id=property_id)
         except Property.DoesNotExist:
             raise serializers.ValidationError({'property_id': 'Property does not exist'})
 
         # Check if dates are valid
-        if data['check_in_date'] >= data['check_out_date']:
+        if check_in_date >= check_out_date:
             raise serializers.ValidationError({'check_out_date': 'Check-out date must be after check-in date'})
 
         # Check if property is available for these dates
         overlapping_bookings = Booking.objects.filter(
-            property_id=data['property_id'],
-            check_in_date__lt=data['check_out_date'],
-            check_out_date__gt=data['check_in_date'],
+            property_id=property_id,
+            check_in_date__lt=check_out_date,
+            check_out_date__gt=check_in_date,
             status='confirmed'
         )
         if overlapping_bookings.exists():
             raise serializers.ValidationError('Property is not available for these dates')
 
         # Check if number of guests is valid
-        if data['num_guests'] > property.max_guests:
-            raise serializers.ValidationError({'num_guests': f'Maximum number of guests allowed is {property.max_guests}'})
+        if num_guests > property_obj.max_guests:
+            raise serializers.ValidationError({'num_guests': f'Maximum number of guests allowed is {property_obj.max_guests}'})
 
         # Calculate total price
-        days = (data['check_out_date'] - data['check_in_date']).days
-        data['total_price'] = property.price_per_night * days
-        data['property'] = property
+        days = (check_out_date - check_in_date).days
+        total_price = property_obj.price_per_night * days
 
-        return data
+        # Return validated data with additional fields
+        validated_data = {
+            'property': property_obj,
+            'check_in_date': check_in_date,
+            'check_out_date': check_out_date,
+            'num_guests': num_guests,
+            'total_price': total_price
+        }
+        return validated_data
 
 class ReviewSerializer(serializers.ModelSerializer):
     guest = UserSerializer(read_only=True)
